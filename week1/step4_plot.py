@@ -10,6 +10,7 @@
 #       angle_compare_<동작>.png   (제출물 ④ 같은 동작의 30° / 60° 나란히 비교, 동작 4종)
 #       angle_envelope.png         (④ 전체 피험자·전체 시행 평균 포락선으로 본 30° / 60°)
 #       angle_rms_table.md         (④ 서술을 뒷받침할 클래스별·채널별 RMS와 60°/30° 비)
+#       signal_checks.md           (이미 필터링된 신호인지, 휴식 구간의 주기적 파형 간격)
 
 import os
 from collections import defaultdict
@@ -17,6 +18,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # 창을 띄우지 않고 파일로만 저장
 import matplotlib.pyplot as plt
+from scipy.signal import find_peaks, welch
 from scipy.stats import wilcoxon
 from common import (BASE_DIR, FS, TRIAL_LEN, CH_NAMES, ANGLES, GESTURES, CLASSES,
                     find_files, label_of, subject_of, load_file, trial_starts, load_trials, active_starts)
@@ -222,5 +224,44 @@ with open(os.path.join(BASE_DIR, 'angle_rms_table.md'), 'w', encoding='utf-8') a
         v = np.array([np.mean([rms[s][c][ch] for c in CLASSES]) for s in subjects])
         f.write(f'| {CH_NAMES[ch]} | ' + ' | '.join(f'{x:.3f}' for x in v) + f' | {v.max() / v.min():.1f}배 |\n')
 
+# ── 확인 1: 배포된 신호가 이미 필터링된 것인가 ───────────────────────────────
+# 컬럼 이름(bandpass)과 README만 믿지 않고 스펙트럼으로 확인한다. 논문 전처리는 60 Hz 노치 + 20~450 Hz 대역통과.
+psd = []
+for p in files:
+    fq, pw = welch(trials[p].reshape(-1, 5).astype(float), fs=FS, nperseg=4096, axis=0)
+    psd.append(pw)
+psd = np.mean(psd, axis=(0, 2))                                   # 64파일 x 5채널 평균
+frac = lambda lo, hi: psd[(fq >= lo) & (fq < hi)].sum() / psd.sum() * 100
+around = (psd[(fq >= 52) & (fq < 57)].mean() + psd[(fq >= 63) & (fq < 68)].mean()) / 2
+notch = psd[(fq >= 59) & (fq <= 61)].mean() / around
+
+# ── 확인 2: 휴식 구간에 반복되는 짧은 파형의 간격 ─────────────────────────────
+# 시행의 마지막 1.7초(3.3~5초, 동작이 끝난 뒤)에서 정류 포락선의 봉우리 사이 간격을 잰다.
+def rest_intervals(subject, ch):
+    iv = []
+    for p in files:
+        if key[p][0] != subject:
+            continue
+        for tr in trials[p]:
+            env = np.convolve(np.abs(tr[3300:, ch]), np.ones(40) / 40, mode='same')
+            base = np.median(env)
+            pk, _ = find_peaks(env, height=3 * base, distance=250, prominence=2 * base)
+            iv += list(np.diff(pk))
+    return np.array(iv)
+
+with open(os.path.join(BASE_DIR, 'signal_checks.md'), 'w', encoding='utf-8') as f:
+    f.write('# 신호 점검 (전체 64개 파일)\n\n## 주파수 대역별 전력 비율 (Welch, 5채널 평균)\n\n')
+    f.write('| 대역 | 전력 비율 |\n|---|---|\n')
+    f.write(f'| 0~20 Hz | {frac(0, 20):.2f}% |\n| 20~450 Hz | {frac(20, 450):.2f}% |\n| 450~500 Hz | {frac(450, 501):.3f}% |\n')
+    f.write(f'\n- 60 Hz 부근(59~61 Hz) 전력 / 주변(52~57, 63~68 Hz) 전력 = {notch:.2f}\n')
+    f.write('\n## 휴식 구간(시행의 3.3~5초)에 반복되는 파형의 간격\n\n')
+    f.write('| 피험자 | ECR: 간격 수 | ECR: 중앙값 (25~75%) ms | Triceps: 간격 수 | Triceps: 중앙값 (25~75%) ms |\n|---|---|---|---|---|\n')
+    for s in subjects:
+        cells = []
+        for ch in (0, 4):
+            iv = rest_intervals(s, ch)
+            cells += [str(len(iv)), f'{np.median(iv):.0f} ({np.percentile(iv, 25):.0f}~{np.percentile(iv, 75):.0f})' if len(iv) >= 20 else '-']
+        f.write(f'| {s} | ' + ' | '.join(cells) + ' |\n')
+
 print('저장 완료: overview_example.png, ch5_example.png, motion_timing.png/.md, '
-      'angle_compare_*.png, angle_envelope.png, angle_rms_table.md')
+      'angle_compare_*.png, angle_envelope.png, angle_rms_table.md, signal_checks.md')

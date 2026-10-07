@@ -29,6 +29,7 @@ for col in ('onset', 'mark'):
 trials = defaultdict(int)      # 클래스 -> 시행 수
 per_subject = defaultdict(int)  # 피험자 -> 시행 수
 lengths, n_ch, methods, gaps, n_marks = [], Counter(), Counter(), [], Counter()
+first_mark, tail, onset_same = [], [], 0
 for f, lab in zip(files, labels):
     df, x = load_file(f)
     starts, how = trial_starts(df, len(x))
@@ -37,6 +38,10 @@ for f, lab in zip(files, labels):
     lengths.append(len(x))
     n_ch[x.shape[1]] += 1
     n_marks[int((df['mark'] != 0).sum())] += 1
+    first_mark.append(int(starts[0]))
+    tail.append(len(x) - int(starts[-1]) - 5000)                 # 30번째 시행 뒤에 남는 행 수
+    onset_rows = np.flatnonzero(df['onset'].to_numpy() != 0)
+    onset_same += int(len(onset_rows) == 1 and onset_rows[0] == starts[0])   # onset의 1이 한 번뿐이고 첫 mark와 같은 행
     methods[how] += 1
     gaps += list(np.diff(starts))
     if len(starts) != 30:
@@ -47,6 +52,8 @@ print('피험자별 시행 수:', dict(per_subject))      # 논문 기준 피험
 # 파일마다 길이가 조금씩 다르다(30번째 시행 뒤에 남는 꼬리 길이 차이). 시행 30개 = 150,000행은 모두 들어 있다.
 print('파일 길이(행) 최소/중앙/최대:', min(lengths), int(np.median(lengths)), max(lengths))
 print('채널 수 분포:', dict(n_ch), '/ 파일당 mark 개수 분포:', dict(n_marks))
+print('첫 mark 위치(행) 최소/최대:', min(first_mark), max(first_mark), '/ 30번째 시행 뒤 남는 행 최소/최대:', min(tail), max(tail))
+print('onset의 1이 한 번뿐이고 첫 mark와 같은 행인 파일 수:', onset_same, '/', len(files))
 print('시행 경계를 찾은 방법:', dict(methods))
 if gaps:
     print('시행 시작 간격(샘플) 최소/중앙/최대:', min(gaps), int(np.median(gaps)), max(gaps))  # 5000이면 정상
@@ -64,6 +71,8 @@ with open(os.path.join(BASE_DIR, 'data_summary.md'), 'w', encoding='utf-8') as f
     f.write(f'- 파일 1개 배열 모양: ({min(lengths):,} ~ {max(lengths):,}, 5) — 한 조건 30회 연속 기록, 중앙값 {int(np.median(lengths)):,}행\n')
     f.write(f'- 컬럼: {list(df.columns)}\n')
     f.write(f'- 파일당 mark 개수: {dict(n_marks)}, 시행 시작 간격(샘플) 최소/중앙/최대: {min(gaps)} / {int(np.median(gaps))} / {max(gaps)}\n')
+    f.write(f'- 첫 mark 위치(행): {min(first_mark)} ~ {max(first_mark):,}, 30번째 시행 뒤 남는 행: {min(tail)} ~ {max(tail):,}\n')
+    f.write(f'- onset 컬럼: 1이 한 번뿐이고 첫 mark와 같은 행인 파일 {onset_same} / {len(files)}\n')
     f.write(f'- 피험자별 시행 수: {dict(per_subject)}\n')
     f.write(f'- 전체 시행 수: {sum(trials.values())}\n\n')
     f.write('| 클래스 | 파일 수 | 시행 수 | 시행 1개 배열 모양 | 채널 수 |\n|---|---|---|---|---|\n')
