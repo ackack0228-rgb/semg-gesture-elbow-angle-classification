@@ -69,6 +69,6 @@ with open(os.path.join(BASE_DIR, 'dataset_summary.md'), 'w', encoding='utf-8') a
         m = Xtr[:, k].mean(0)
         f.write(f'| {name} | {m.min():.4f} ~ {m.max():.4f} | '
                 f'{abs(Xtr_s[:, k].mean(0)).max():.1e} · {Xtr_s[:, k].std(0).min():.4f}~{Xtr_s[:, k].std(0).max():.4f} | '
-                f'{Xte_s[:, k].mean(0).min():+.3f}~{Xte_s[:, k].mean(0).max():+.3f} · '
-                f'{Xte_s[:, k].std(0).min():.3f}~{Xte_s[:, k].std(0).max():.3f} |\n')
+                f'{Xte_s[:, k].mean(0).min():+.3f}\\~{Xte_s[:, k].mean(0).max():+.3f} · '      # '\~' = GitHub 취소선 방지
+                f'{Xte_s[:, k].std(0).min():.3f}\\~{Xte_s[:, k].std(0).max():.3f} |\n')
 print('요약 저장: dataset_summary.md')

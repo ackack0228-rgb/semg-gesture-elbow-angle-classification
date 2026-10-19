@@ -253,7 +253,8 @@ with open(os.path.join(BASE_DIR, 'signal_checks.md'), 'w', encoding='utf-8') as 
     f.write('# 신호 점검 (전체 64개 파일)\n\n## 주파수 대역별 전력 비율 (Welch, 5채널 평균)\n\n')
     f.write('| 대역 | 전력 비율 |\n|---|---|\n')
     f.write(f'| 0~20 Hz | {frac(0, 20):.2f}% |\n| 20~450 Hz | {frac(20, 450):.2f}% |\n| 450~500 Hz | {frac(450, 501):.3f}% |\n')
-    f.write(f'\n- 60 Hz 부근(59~61 Hz) 전력 / 주변(52~57, 63~68 Hz) 전력 = {notch:.2f}\n')
+    # '\~' = GitHub에서 '~' 두 개 사이가 취소선이 되지 않게 (화면에는 ~ 로 보임)
+    f.write(f'\n- 60 Hz 부근(59\\~61 Hz) 전력 / 주변(52\\~57, 63\\~68 Hz) 전력 = {notch:.2f}\n')
     f.write('\n## 휴식 구간(시행의 3.3~5초)에 반복되는 파형의 간격\n\n')
     f.write('| 피험자 | ECR: 간격 수 | ECR: 중앙값 (25~75%) ms | Triceps: 간격 수 | Triceps: 중앙값 (25~75%) ms |\n|---|---|---|---|---|\n')
     for s in subjects:
