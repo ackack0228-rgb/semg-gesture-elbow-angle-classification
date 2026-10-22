@@ -26,3 +26,6 @@ week3/*_log.txt
 
 # 3주차 제출 문서 생성 스크립트 (제출용, 공개 대상 아님)
 week3/_docgen/
+
+# 가상환경 (README 1.5절)
+.venv/
